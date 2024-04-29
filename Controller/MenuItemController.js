@@ -35,6 +35,7 @@ exports.insert = [
     body("menuname").isAlpha().withMessage("Name cannot contain numbers or special characters"),
     body("description").isLength({ min: 10 }).withMessage("Description must be at least 10 characters long"),
     body("price").isNumeric().withMessage("Price must be numeric"),
+    body("category").isLength({ min: 1 }).withMessage("Category cannot be empty"),
     // body("category").isAlpha().withMessage("Category can only contain letters"),
 
     async (req, res) => {
@@ -43,13 +44,23 @@ exports.insert = [
             return res.status(400).json({ errors: errors.array() });
         }
 
-        try {
+        try
+        {
+            // Find the category by name or create a new one if it doesn't exist
+            let category = await category.findOne({ name: req.body.category });
+            if (!category) {
+                category = new category({ name: req.body.category });
+                await category.save();
+            }
+        
+        
+        
             const menuitem = new MenuItem({
                 menuname: req.body.menuname,
                 description: req.body.description,
                 price: req.body.price,
                 image: req.file ? req.file.filename : null,
-                // category: req.body.category,
+                category: category._id, // Assign the category's ObjectId to the menu item
             });
 
             // Save the product to the database
@@ -73,7 +84,8 @@ exports.update = [
             menuname: req.body.menuname,
             description: req.body.description,
             price: req.body.price,
-            image: req.file ? req.file.filename : req.body.image, // Use new image if available, else use existing image
+            image: req.file ? req.file.filename : req.body.image, 
+            category: req.body.category,// Use new image if available, else use existing image
         };
 
         try {
@@ -90,20 +102,6 @@ exports.update = [
     }
 ];
 
-exports.like = [(req,res)=>{
-    MenuItem.updateOne(
-        { _id:req.params.id },
-        { $inc : {
-            likes : 1
-        }}
-    )
-    .then((menuItem)=>{
-        return res.status(200).send(menuItem)
-    })
-    .catch((err)=>{
-        return res.status(200).send(err.message);
-    })
-}]
 
 exports.delete = (req,res)=>{
     const menuItemId = req.params.id;
@@ -117,43 +115,37 @@ exports.delete = (req,res)=>{
     })
 }
 
-exports.findByPriceGreater = [(req,res)=>{
-    MenuItem.find({price:{
-        $gt:req.params.price
-    }})
-    .then((menuItem)=>{
-        return res.status(200).send(menuItem)
-    })
-    .catch((err)=>{
-        return res.status(200).send(err.message)
-    })
-}]
+exports.createOrder = async (req, res) => {
+    try {
+        // Assuming customer information is sent along with the order request
+        const { customerId, items, totalAmount, status } = req.body;
 
-exports.findByPriceLesser = [(req,res)=>{
-    MenuItem.find({price:{
-        $lt:req.params.price
-    }})
-    .then((menuItem)=>{
-        return res.status(200).send(menuItem)
-    })
-    .catch((err)=>{
-        return res.status(200).send(err.message)
-    })
-}]
+        // Check if the customer exists
+        const customer = await Customer.findById(customerId);
+        if (!customer) {
+            return res.status(404).json({ error: 'Customer not found' });
+        }
 
-exports.findByPriceBetween = [(req,res)=>{
-    MenuItem.find({$and:[
-        {price:{
-            $gte:req.body.gte
-        }},
-        {price:{
-            $lte:req.body.lte
-        }}
-    ]})
-    .then((menuItem)=>{
-        return res.status(200).send(menuItem)
-    })
-    .catch((err)=>{
-        return res.status(200).send(err.message)
-    })
-}]
+        // Create the order and associate it with the customer
+        const order = new Order({
+            customer: customer._id,
+            items,
+            totalAmount,
+            status
+        });
+
+        const savedOrder = await order.save();
+        return res.status(200).json(savedOrder);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+};
+
+exports.getOrders = async (req, res) => {
+    try {
+        const orders = await Order.find().populate('customer');
+        return res.status(200).json(orders);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+};
