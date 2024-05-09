@@ -1,14 +1,22 @@
 const jwt = require('jsonwebtoken');
-function verifyToken(req,res,next){
+
+function verifyToken(req, res, next) {
     const token = req.header('Authorization');
-    if (!token)  // If the token is not found "access is denied"
-        return res.status(401).json({error: 'Access denied'});
-    try{    // Verifying the key of the user
-        const decoded = jwt.verify(token, '20');
+
+    if (!token) {
+        console.error('No token found');
+        return res.status(401).json({ error: 'Access denied' });
+    }
+
+    try {
+        const decoded = jwt.verify(token.split(' ')[1], 'key'); // Split token to get the actual token value
         req.userId = decoded.userId;
+        console.log('Token verified:', decoded);
         next();
-    }catch (error){
-        res.status(401).json({error: 'Invalid Token'});
+    } catch (error) {
+        console.error('Error verifying token:', error);
+        return res.status(401).json({ error: 'Invalid Token' });
     }
 }
+
 module.exports = verifyToken;

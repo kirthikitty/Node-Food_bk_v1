@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+
 const userSchema = new mongoose.Schema({
     firstname : {type:String, required:true},
     lastname : {type:String,required:true},
@@ -7,7 +8,11 @@ const userSchema = new mongoose.Schema({
     address:{
         type : mongoose.Schema.Types.ObjectId,
         ref : "Address"
+    },
+    cart: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Cart"
     }
-    // email : {type:String,required:true}
 },{timestamps:true});
-module.exports = mongoose.model('User',userSchema); 
+
+module.exports = mongoose.model('User',userSchema);
